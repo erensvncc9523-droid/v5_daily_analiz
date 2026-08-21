@@ -496,12 +496,10 @@ def gunluk_al_tara(symbols=None, log_func=None):
 # ─────────────────────────────────────────────
 def excel_takip_guncelle(al_listesi):
     excel_path = Path(EXCEL_FILE)
-    print("
-" + "="*60)
+    print("\n" + "="*60)
     print("  EXCEL TAKİP TABLOSU GÜNCELLENİYOR (Yüzde.xlsx)")
     print("="*60)
 
-    # 1. Mevcut Excel'i Oku veya Şablonu Kur
     col_names = [
         'İşlem ID', 'Hisse', 'Sektör', 'AL Tarihi', 'AL Gücü', 'Giriş Fiyatı',
         'Stop Fiyatı', 'Durum', 'Çıkış Tarihi', 'Çıkış Fiyatı', 'Çıkış Nedeni',
@@ -529,14 +527,12 @@ def excel_takip_guncelle(al_listesi):
         except Exception as e:
             print(f"  ! Excel okuma uyarısı: {e}, yeni şablon oluşturuluyor.")
 
-    # 2. BIST Endeksini (XU100) Güncelle
     xu100_close_today = np.nan
     try:
         df_xu, _ = veri_cek_kaynakli("XU100", "1mo", "1d")
         if df_xu is not None and len(df_xu) > 0:
             xu100_close_today = float(df_xu["Close"].iloc[-1])
             tarih_today = df_xu.index[-1].strftime("%Y-%m-%d")
-            # BIST tablosuna son günü ekle/güncelle
             if 'Tarih' in df_bist.columns and len(df_bist) > 0:
                 df_bist['Tarih_str'] = pd.to_datetime(df_bist['Tarih']).dt.strftime("%Y-%m-%d")
                 if tarih_today not in df_bist['Tarih_str'].values:
@@ -551,7 +547,6 @@ def excel_takip_guncelle(al_listesi):
     except Exception as e:
         print(f"  ! XU100 veri hatası: {e}")
 
-    # 3. Açık Pozisyonları Güncelle (Dinamik Stop & Çıkış Kontrolü)
     yeni_kapanan_sayisi = 0
     guncellenen_satir = 0
 
@@ -581,7 +576,6 @@ def excel_takip_guncelle(al_listesi):
             mae_pct = ((new_low / giris_fiyati) - 1.0) * 100.0
             guncel_getiri_pct = ((last_close / giris_fiyati) - 1.0) * 100.0
 
-            # Dinamik Stop Hesapla
             initial_stop = giris_fiyati * (1.0 - STOP_LOSS_PCT / 100.0)
             active_stop = initial_stop
 
@@ -592,7 +586,6 @@ def excel_takip_guncelle(al_listesi):
             elif mfe_pct >= BREAKEVEN_TRIGGER_PCT:
                 active_stop = max(active_stop, giris_fiyati)
 
-            # Güncelle
             df_veriler.at[idx, 'Güncel Fiyat'] = round(last_close, 2)
             df_veriler.at[idx, 'En Yüksek Fiyat'] = round(new_high, 2)
             df_veriler.at[idx, 'En Düşük Fiyat'] = round(new_low, 2)
@@ -601,14 +594,12 @@ def excel_takip_guncelle(al_listesi):
             df_veriler.at[idx, 'Güncel Getiri (%)'] = round(guncel_getiri_pct, 2)
             df_veriler.at[idx, 'Stop Fiyatı'] = round(active_stop, 2)
 
-            # Pozisyon günü hesabı
             try:
                 al_tarihi = pd.to_datetime(row['AL Tarihi'])
                 df_veriler.at[idx, 'Pozisyonda Gün'] = max(1, (pd.to_datetime(last_date) - al_tarihi).days)
             except:
                 pass
 
-            # Çıkış Kontrolü
             if last_low <= active_stop:
                 cikis_fiyati = active_stop
                 getiri = ((cikis_fiyati / giris_fiyati) - 1.0) * 100.0
@@ -623,7 +614,6 @@ def excel_takip_guncelle(al_listesi):
                 yeni_kapanan_sayisi += 1
                 print(f"  -> Pozisyon Kapandı: {hisse} ({cikis_nedeni}) @ {cikis_fiyati:.2f} TL (Getiri: %{getiri:.2f})")
 
-    # 4. Yeni AL Sinyallerini Tabloya Ekle
     yeni_al_sayisi = 0
     acik_hisseler = set(df_veriler[df_veriler['Durum'] == 'AÇIK']['Hisse'].astype(str).str.strip().str.upper()) if len(df_veriler) > 0 else set()
 
@@ -670,7 +660,6 @@ def excel_takip_guncelle(al_listesi):
         yeni_al_sayisi += 1
         print(f"  + Yeni İşlem Eklendi: {hisse_kod} @ {sinyal_fiyat} TL (Stop: {stop_fiyat} TL)")
 
-    # 5. ÖZET Sayfasını Oluştur
     toplam_islem = len(df_veriler)
     acik_islem = (df_veriler['Durum'] == 'AÇIK').sum() if toplam_islem > 0 else 0
     stop_islem = (df_veriler['Durum'] == 'STOP').sum() if toplam_islem > 0 else 0
@@ -690,14 +679,12 @@ def excel_takip_guncelle(al_listesi):
         {'Alan': 'Script Versiyon', 'Değer': SCRIPT_VERSION}
     ])
 
-    # 6. Excel Dosyasını Kaydet
     try:
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             df_ozet.to_excel(writer, sheet_name='ÖZET', index=False)
             df_veriler.to_excel(writer, sheet_name='VERİLER', index=False)
             df_bist.to_excel(writer, sheet_name='BIST', index=False)
-        print(f"
-  ✓ {EXCEL_FILE} başarıyla kaydedildi.")
+        print(f"\n  ✓ {EXCEL_FILE} başarıyla kaydedildi.")
         print(f"  -> Toplam: {toplam_islem} | Açık: {acik_islem} | Yeni AL: {yeni_al_sayisi} | Kapanan: {yeni_kapanan_sayisi}")
     except Exception as e:
         print(f"  X Excel kaydetme hatası: {e}")
@@ -706,8 +693,7 @@ def excel_takip_guncelle(al_listesi):
 # ANA TARAMA ÇALIŞTIRICI
 # ─────────────────────────────────────────────
 def tara():
-    print("
-" + "="*60)
+    print("\n" + "="*60)
     print("  BIST ESv2 TARAMA & EXCEL TAKİP - GÜNLÜK PERİYOT")
     print(f"  Tarih  : {datetime.now().strftime('%d.%m.%Y %H:%M')}")
     print(f"  Veri   : {DATA_SOURCE} | fallback: {'ACIK' if ALLOW_DATA_FALLBACK else 'KAPALI'}")
@@ -770,8 +756,7 @@ def tara():
     # ─────────────────────────────────────────────
     # SONUÇLAR VE EXCEL GÜNCELLEME
     # ─────────────────────────────────────────────
-    print("
-" + "="*60)
+    print("\n" + "="*60)
     print(f"  AL SINYALI VEREN HISSELER ({len(al_listesi)} adet)")
     print("="*60)
     if al_listesi:
@@ -784,11 +769,9 @@ def tara():
     excel_takip_guncelle(al_listesi)
 
     if hata_listesi:
-        print(f"
-  Veri alınamayan: {len(hata_listesi)} hisse")
+        print(f"\n  Veri alınamayan: {len(hata_listesi)} hisse")
 
-    print("="*60 + "
-")
+    print("="*60 + "\n")
     try:
         input("  Çıkmak için Enter'a basın...")
     except EOFError:
