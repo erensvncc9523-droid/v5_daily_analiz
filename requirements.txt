@@ -1,0 +1,5 @@
+pandas
+numpy
+openpyxl
+yfinance
+git+https://github.com/rongardF/tvdatafeed.git@e6f6aaa7de439ac6e454d9b26d2760ded8dc4923

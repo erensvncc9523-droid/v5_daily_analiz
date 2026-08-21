@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+~$*.xlsx
+bist_al_*.xlsx
+*backup_*.xlsx
+*before_backfill_*.xlsx
+test_*_tmp.xlsx
